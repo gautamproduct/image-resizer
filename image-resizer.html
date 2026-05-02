@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Size Bucket Tool</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+        }
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle { color: #888; margin-bottom: 30px; }
+        .container {
+            background: #16213e;
+            border-radius: 16px;
+            padding: 32px;
+            width: 100%;
+            max-width: 600px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .drop-zone {
+            border: 2px dashed #444;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+        }
+        .drop-zone p { color: #888; }
+        .drop-zone .icon { font-size: 2.5rem; margin-bottom: 10px; }
+        input[type="file"] { display: none; }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        label { font-size: 0.9rem; color: #aaa; }
+        .size-input-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        input[type="number"] {
+            background: #0f3460;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 12px 16px;
+            color: #fff;
+            font-size: 1.1rem;
+            width: 120px;
+            outline: none;
+        }
+        input[type="number"]:focus { border-color: #667eea; }
+        .unit { color: #888; font-size: 0.9rem; }
+        .range-hint { color: #666; font-size: 0.8rem; }
+        .btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 8px;
+            padding: 14px 28px;
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, opacity 0.2s;
+            width: 100%;
+        }
+        .btn:hover { transform: translateY(-1px); opacity: 0.9; }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+        .result {
+            margin-top: 24px;
+            padding: 20px;
+            background: #0f3460;
+            border-radius: 12px;
+            display: none;
+        }
+        .result.show { display: block; }
+        .result-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            font-size: 0.9rem;
+        }
+        .result-info .label { color: #888; }
+        .result-info .value { color: #4ade80; font-weight: 600; }
+        .preview-container {
+            display: flex;
+            gap: 16px;
+            margin-top: 16px;
+        }
+        .preview-box {
+            flex: 1;
+            text-align: center;
+        }
+        .preview-box img {
+            max-width: 100%;
+            max-height: 150px;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+        .preview-box .label {
+            font-size: 0.75rem;
+            color: #888;
+            margin-top: 6px;
+        }
+        .download-btn {
+            margin-top: 16px;
+            background: linear-gradient(135deg, #4ade80, #22c55e);
+        }
+        .error {
+            color: #f87171;
+            font-size: 0.85rem;
+            margin-top: 8px;
+            display: none;
+        }
+        .error.show { display: block; }
+        .progress {
+            margin-top: 12px;
+            display: none;
+        }
+        .progress.show { display: block; }
+        .progress-bar {
+            height: 4px;
+            background: #333;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s;
+        }
+        .progress-text {
+            font-size: 0.8rem;
+            color: #888;
+            margin-top: 6px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Image Size Bucket Tool</h1>
+    <p class="subtitle">Compress or adjust any PNG/JPEG to your target size (max 150 KB)</p>
+
+    <div class="container">
+        <div class="drop-zone" id="dropZone">
+            <div class="icon">🖼️</div>
+            <p>Drop your image here or click to browse</p>
+            <p style="font-size: 0.8rem; margin-top: 8px;">Supports PNG & JPEG</p>
+        </div>
+        <input type="file" id="fileInput" accept="image/png, image/jpeg">
+
+        <div class="controls">
+            <div>
+                <label>Target File Size</label>
+                <div class="size-input-group">
+                    <input type="number" id="targetSize" min="1" max="150" value="50" step="1">
+                    <span class="unit">KB</span>
+                    <span class="range-hint">(1 - 150 KB)</span>
+                </div>
+            </div>
+            <div>
+                <label>Output Format</label>
+                <div class="size-input-group">
+                    <select id="outputFormat" style="background:#0f3460;border:1px solid #333;border-radius:8px;padding:12px 16px;color:#fff;font-size:1rem;outline:none;">
+                        <option value="image/jpeg">JPEG</option>
+                        <option value="image/png">PNG</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <button class="btn" id="processBtn" disabled>Resize to Target Size</button>
+
+        <div class="error" id="error"></div>
+
+        <div class="progress" id="progress">
+            <div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+            <p class="progress-text" id="progressText">Processing...</p>
+        </div>
+
+        <div class="result" id="result">
+            <div class="result-info">
+                <span class="label">Original Size:</span>
+                <span class="value" id="originalSize">-</span>
+            </div>
+            <div class="result-info">
+                <span class="label">New Size:</span>
+                <span class="value" id="newSize">-</span>
+            </div>
+            <div class="result-info">
+                <span class="label">Dimensions:</span>
+                <span class="value" id="dimensions">-</span>
+            </div>
+            <div class="preview-container">
+                <div class="preview-box">
+                    <img id="previewOriginal" alt="Original">
+                    <p class="label">Original</p>
+                </div>
+                <div class="preview-box">
+                    <img id="previewResult" alt="Result">
+                    <p class="label">Result</p>
+                </div>
+            </div>
+            <button class="btn download-btn" id="downloadBtn">Download Result</button>
+        </div>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const targetSizeInput = document.getElementById('targetSize');
+        const outputFormat = document.getElementById('outputFormat');
+        const processBtn = document.getElementById('processBtn');
+        const errorEl = document.getElementById('error');
+        const progressEl = document.getElementById('progress');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const resultEl = document.getElementById('result');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        let selectedFile = null;
+        let resultBlob = null;
+        let resultFileName = '';
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && (file.type === 'image/png' || file.type === 'image/jpeg')) {
+                handleFile(file);
+            } else {
+                showError('Please drop a PNG or JPEG image.');
+            }
+        });
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files[0]) handleFile(e.target.files[0]);
+        });
+
+        function handleFile(file) {
+            selectedFile = file;
+            dropZone.innerHTML = `<div class="icon">✅</div><p>${file.name}</p><p style="font-size:0.8rem;margin-top:8px;color:#4ade80;">${(file.size / 1024).toFixed(1)} KB</p>`;
+            processBtn.disabled = false;
+            hideError();
+            resultEl.classList.remove('show');
+        }
+
+        function showError(msg) {
+            errorEl.textContent = msg;
+            errorEl.classList.add('show');
+        }
+        function hideError() {
+            errorEl.classList.remove('show');
+        }
+
+        processBtn.addEventListener('click', async () => {
+            hideError();
+            const targetKB = parseInt(targetSizeInput.value);
+            if (isNaN(targetKB) || targetKB < 1 || targetKB > 150) {
+                showError('Target size must be between 1 and 150 KB.');
+                return;
+            }
+            if (!selectedFile) {
+                showError('Please select an image first.');
+                return;
+            }
+            processBtn.disabled = true;
+            progressEl.classList.add('show');
+            resultEl.classList.remove('show');
+
+            try {
+                const result = await resizeToTarget(selectedFile, targetKB * 1024, outputFormat.value);
+                resultBlob = result.blob;
+                const ext = outputFormat.value === 'image/jpeg' ? 'jpg' : 'png';
+                const baseName = selectedFile.name.replace(/\.[^.]+$/, '');
+                resultFileName = `${baseName}_${targetKB}kb.${ext}`;
+
+                document.getElementById('originalSize').textContent = (selectedFile.size / 1024).toFixed(1) + ' KB';
+                document.getElementById('newSize').textContent = (result.blob.size / 1024).toFixed(1) + ' KB';
+                document.getElementById('dimensions').textContent = `${result.width} × ${result.height}`;
+
+                const origURL = URL.createObjectURL(selectedFile);
+                const resURL = URL.createObjectURL(result.blob);
+                document.getElementById('previewOriginal').src = origURL;
+                document.getElementById('previewResult').src = resURL;
+
+                resultEl.classList.add('show');
+            } catch (e) {
+                showError(e.message || 'Processing failed.');
+            } finally {
+                processBtn.disabled = false;
+                progressEl.classList.remove('show');
+            }
+        });
+
+        downloadBtn.addEventListener('click', () => {
+            if (!resultBlob) return;
+            const url = URL.createObjectURL(resultBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = resultFileName;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        async function resizeToTarget(file, targetBytes, format) {
+            const img = await loadImage(file);
+            let width = img.naturalWidth;
+            let height = img.naturalHeight;
+
+            if (format === 'image/jpeg') {
+                return await binarySearchQuality(img, width, height, targetBytes, format);
+            } else {
+                return await scaleToTarget(img, width, height, targetBytes, format);
+            }
+        }
+
+        function loadImage(file) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+                const url = URL.createObjectURL(file);
+                img.src = url;
+            });
+        }
+
+        async function binarySearchQuality(img, width, height, targetBytes, format) {
+            let scale = 1.0;
+            let bestBlob = null;
+            let bestW = width, bestH = height;
+
+            // First try at full size with quality adjustment
+            let lo = 0.01, hi = 1.0;
+            for (let i = 0; i < 20; i++) {
+                const mid = (lo + hi) / 2;
+                const blob = canvasToBlob(img, width, height, format, mid);
+                updateProgress(i, 40);
+                if (blob.size <= targetBytes) {
+                    bestBlob = blob;
+                    lo = mid;
+                } else {
+                    hi = mid;
+                }
+            }
+
+            // If min quality still too big, scale down
+            if (!bestBlob || bestBlob.size > targetBytes) {
+                let scaleLo = 0.05, scaleHi = 1.0;
+                for (let i = 0; i < 20; i++) {
+                    scale = (scaleLo + scaleHi) / 2;
+                    const w = Math.round(width * scale);
+                    const h = Math.round(height * scale);
+                    const blob = canvasToBlob(img, w, h, format, 0.7);
+                    updateProgress(20 + i, 40);
+                    if (blob.size <= targetBytes) {
+                        bestBlob = blob;
+                        bestW = w;
+                        bestH = h;
+                        scaleLo = scale;
+                    } else {
+                        scaleHi = scale;
+                    }
+                }
+            } else {
+                bestW = width;
+                bestH = height;
+            }
+
+            if (!bestBlob) {
+                // Last resort: smallest possible
+                bestBlob = canvasToBlob(img, 16, Math.round(16 * height / width), format, 0.01);
+                bestW = 16;
+                bestH = Math.round(16 * height / width);
+            }
+
+            // If target is larger than current (increasing size) — pad with higher quality
+            if (bestBlob.size < targetBytes * 0.85) {
+                const upResult = await inflateToTarget(img, width, height, targetBytes, format, bestBlob);
+                if (upResult) return upResult;
+            }
+
+            return { blob: bestBlob, width: bestW, height: bestH };
+        }
+
+        async function scaleToTarget(img, width, height, targetBytes, format) {
+            // For PNG, we can only scale dimensions
+            let scaleLo = 0.01, scaleHi = 2.0;
+            let bestBlob = null, bestW = width, bestH = height;
+
+            // First check original size
+            const origBlob = canvasToBlob(img, width, height, format, 1.0);
+            if (origBlob.size <= targetBytes) {
+                bestBlob = origBlob;
+                bestW = width;
+                bestH = height;
+                // Try scaling up if much smaller
+                if (origBlob.size < targetBytes * 0.8) {
+                    scaleHi = 3.0;
+                    scaleLo = 1.0;
+                } else {
+                    return { blob: bestBlob, width: bestW, height: bestH };
+                }
+            }
+
+            for (let i = 0; i < 25; i++) {
+                const scale = (scaleLo + scaleHi) / 2;
+                const w = Math.max(4, Math.round(width * scale));
+                const h = Math.max(4, Math.round(height * scale));
+                const blob = canvasToBlob(img, w, h, format, 1.0);
+                updateProgress(i, 25);
+                if (blob.size <= targetBytes) {
+                    bestBlob = blob;
+                    bestW = w;
+                    bestH = h;
+                    scaleLo = scale;
+                } else {
+                    scaleHi = scale;
+                }
+            }
+
+            if (!bestBlob) {
+                bestBlob = canvasToBlob(img, 4, Math.max(4, Math.round(4 * height / width)), format, 1.0);
+                bestW = 4;
+                bestH = Math.max(4, Math.round(4 * height / width));
+            }
+
+            return { blob: bestBlob, width: bestW, height: bestH };
+        }
+
+        async function inflateToTarget(img, width, height, targetBytes, format, currentBlob) {
+            // Try increasing quality to get closer to target
+            let lo = 0.5, hi = 1.0;
+            let bestBlob = currentBlob;
+            let bestW = width, bestH = height;
+
+            for (let i = 0; i < 15; i++) {
+                const mid = (lo + hi) / 2;
+                const blob = canvasToBlob(img, width, height, format, mid);
+                if (blob.size <= targetBytes) {
+                    bestBlob = blob;
+                    lo = mid;
+                } else {
+                    hi = mid;
+                }
+            }
+            if (bestBlob.size <= targetBytes) {
+                return { blob: bestBlob, width: width, height: height };
+            }
+            return null;
+        }
+
+        function canvasToBlob(img, w, h, format, quality) {
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            const dataURL = canvas.toDataURL(format, quality);
+            const binary = atob(dataURL.split(',')[1]);
+            const array = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) array[i] = binary.charCodeAt(i);
+            return new Blob([array], { type: format });
+        }
+
+        function updateProgress(current, total) {
+            const pct = Math.round((current / total) * 100);
+            progressFill.style.width = pct + '%';
+            progressText.textContent = `Processing... ${pct}%`;
+        }
+    </script>
+</body>
+</html>
